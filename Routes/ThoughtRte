@@ -1,0 +1,128 @@
+const {users, thoughts} = require('../models')
+const thought_controller = {
+
+  get_thoughts(req, res) {
+    thoughts.find({})
+      .populate({
+        path: 'reactions',
+        select: '-__v'
+      })
+      .select('-__v')
+      .sort({ _id: -1 })
+      .then(db_thoughts => res.json(db_thoughts))
+      .catch(err => {
+        console.log(err)
+        res.sendStatus(400)
+      })
+  },
+
+  get_one_thought({ params }, res) {
+    thoughts.findOne({ _id: params.id })
+      .populate({
+        path: 'reactions',
+        select: '-__v'
+      })
+      .select('-__v')
+      .sort({ _id: -1 })
+      .then(db_thoughts => {
+        if (!db_thoughts) {
+          res.status(404).json({ message: 'No Thoughts Found' })
+          return
+        }
+        res.json(db_thoughts)
+      })
+      .catch(err => {
+        console.log(err)
+        res.sendStatus(400)
+      })
+  },
+
+  create_thought({ body }, res) {
+    thoughts.create(body)
+        .then(({ _id }) => {
+            return users.findOneAndUpdate(
+                { _id: body.userId },
+                { $push: { thoughts: _id } },
+                { new: true }
+            )
+        })
+        .then(db_thoughts => {
+            if (!db_thoughts) {
+                res.status(404).json({ message: 'No User Found })
+                return
+            }
+            res.json(db_thoughts)
+        })
+        .catch(err => res.json(err))
+},
+
+  update_thought({ params, body }, res) {
+    thoughts.findOneAndUpdate({ _id: params.id }, body, { new: true, runValidators: true })
+      .then(db_thoughts => {
+        if (!db_thoughts) {
+          res.status(404).json({ message: 'No Thoughts Found' })
+          return
+        }
+        res.json(db_thoughts)
+      })
+      .catch(err => res.json(err))
+  },
+
+  delete_thought({ params }, res) {
+    thoughts.findOneAndDelete({ _id: params.id })
+      .then(db_thoughts => {
+        if (!db_thoughts) {
+          res.status(404).json({ message: 'No Thoughts Found' })
+          return
+        }
+        return users.findOneAndUpdate(
+          { _id: parmas.userId },
+          { $pull: { thoughts: params.Id } },
+          { new: true }
+        )
+      })
+      .then(user_data => {
+        if (!user_data) {
+          res.status(404).json({ message: 'No User Found' })
+          return
+        }
+        res.json(user_data)
+      })
+      .catch(err => res.json(err))
+  },
+
+  create_reaction({params, body}, res) {
+    thoughts.findOneAndUpdate(
+      {_id: params.thoughtId}, 
+      {$push: {reactions: body}}, 
+      {new: true, runValidators: true})
+    .populate({path: 'reactions', select: '-__v'})
+    .select('-__v')
+    .then(db_thoughts => {
+        if (!db_thoughts) {
+            res.status(404).json({message: 'No Thoughts Found'})
+            return
+        }
+        res.json(db_thoughts)
+    })
+    .catch(err => res.status(400).json(err))
+},
+
+  delete_reaction({ params }, res) {
+    thoughts.findOneAndUpdate(
+      { _id: params.thoughtId },
+      { $pull: { reactions: { reactionId: params.reactionId } } },
+      { new: true }
+    )
+      .then(db_thoughts => {
+        if (!db_thoughts) {
+          res.status(404).json({ message: 'No Thoughts Found'})
+          return
+        }
+       res.json(db_thoughts)
+      })
+      .catch(err => res.json(err))
+  }
+}
+
+module.exports = thought_controller
